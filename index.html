@@ -1,0 +1,169 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>Socket.IO chat</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css">
+</head>
+
+<body>
+    <ul id="chat_messages_collection"></ul>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-6">
+                <form action="">
+                    <div class="form-group" id="username_section">
+                        <label for="my-input">Username</label>
+                        <input type="text" name="username" id="username" placeholder="Enter Username"
+                            class="form-control">
+                    </div>
+                    <div class="form-group" id="chat_section">
+                        <label for="my-input">Chat</label>
+                        <input type="text" name="chat" id="chat" placeholder="Enter Chat" class="form-control">
+                    </div>
+                    <button type="button" id="Submit">Send</button>
+                </form>
+                <div id="socket_username"></div>
+                <div id="socket_id_connected"></div>
+            </div>
+            <div class="col-6">
+                Connected Sockets
+                <ul id="connected_socket"></ul>
+            </div>
+        </div>
+    </div>
+    <br><br><br>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-6">
+                <h5>Send message to any socket ( via socket id ) </h5>
+                <form method=get" action="">
+                    <div class="form-group">
+                        <label for="my-input">Socket ID</label>
+                        <input placeholder="Enter Socket id" class="form-control" type="text" name="socket_id"
+                            id="socket_id">
+                    </div>
+                    <div class="form-group">
+                        <label for="privatemessage">Message</label>
+                        <input placeholder="Enter message" id="privatemessage" class="form-control" type="text"
+                            name="privatemessage">
+                    </div>
+                    <div class="form-group">
+                        <input id="privatemessagebtn" class="form-control" type="button" name="privatemessagebtn"
+                            value="Send">
+                    </div>
+                </form>
+            </div>
+            <div class="col-6">
+                <h5>Broadcast Message</h5>
+                <form method=get" action="">
+                    <div class="form-group">
+                        <label for="privatemessage">Broadcast Messages</label>
+                        <textarea placeholder="Enter broadcast message" id="broadcastMessage" class="form-control"
+                            rows="5"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <input id="broadcastMessagebtn" class="form-control" type="button" name="broadcastMessagebtn"
+                            value="Send">
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.2.0/socket.io.js"></script>
+    <script src='https://code.jquery.com/jquery-1.11.1.js'></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            // set global variables.
+            var username;
+            const socket = io();
+            const setUserName = () => {
+                username = $("#username").val();
+                socket.emit('add user', username);
+                $("#username").val(''); // reset
+            };
+            $("#chat_section").css("display", "none");
+            $("#Submit").click(function (e) {
+                e.preventDefault();
+
+                $("#username_section").css("display", "none");
+                $("#chat_section").css("display", "block");
+                if (username) {
+                    console.log('send message.');
+
+                    var chatMessage = $("#chat").val();
+                    socket.emit('chat message', chatMessage);
+
+                } else {
+                    // Set Username.
+                    setUserName();
+                }
+
+            });
+            // chat message listener.
+            socket.on('chat message', function (data) {
+                var messagexx = data.username + " : " + data.message;
+                $("#chat_messages_collection").prepend("<li>" + messagexx + "</li>");
+            });
+            socket.on('new user notification', function (totalUsers) {
+                var message = "Welcome to the chat! Total Users in list" + totalUsers;
+                $("#chat_messages_collection").prepend("<li>" + message + "</li>");
+            });
+            socket.on('welcome message', function (data) {
+                let message = "<li>" + data.username + " - Thanks for signup !!" + "</li>";
+                let socket_id_connected = "<b>Your Connected Socket: </b>" + data.socket_id + "";
+                let socket_username = "<b>Your Connected Username: </b>" + data.username;
+                $("#socket_id_connected").prepend(socket_id_connected);
+                $("#socket_username").prepend(socket_username);
+                $("#chat_messages_collection").prepend(message);
+            });
+            socket.on('global welcome message', function (data) {
+                let message = "<li>New User signup!" + "</li>";
+                message += "<li><b>Welcome : </b>" + data.username + ' ( SID: ' + data.socket_id +
+                    " )</li>";
+                $("#chat_messages_collection").prepend(message);
+            });
+            // user left.
+            socket.on('user left', function (data) {
+                let message = "<li><b>Disconnected Socket: </b>" + data.socket_id + "</li>";
+                message += "<li><b>Left Username: </b>" + data.username + "</li>";
+                $("#chat_messages_collection").prepend(message);
+            });
+            /*
+             *   Socket private messaging.
+             */
+            $("#privatemessagebtn").click(function (e) {
+                e.preventDefault();
+                const socket_id_ = $("#socket_id").val();
+                const privatemessage_ = $("#privatemessage").val();
+                // send private message to server.
+                socket.emit('private socket message', {
+                    socket_id: socket_id_,
+                    message: privatemessage_
+                });
+            });
+            socket.on('private socket message', function (receivedMessage) {
+                let message = "<li><b>Private Message: </b>" + receivedMessage + "</li>";
+                $("#chat_messages_collection").prepend(message);
+            });
+            /*
+             *   Broadcast private messaging.
+             */
+            $("#broadcastMessagebtn").click(function (e) {
+                e.preventDefault();
+                const broadcastMessage = $("#broadcastMessage").val();
+                // send Broadcast message to server.
+                socket.emit('broadcast socket message', {
+                    message: broadcastMessage
+                });
+            });
+            socket.on('broadcast socket message', function (broadcastMessage) {
+                let message = "<li><b>Broadcast Message: </b>" + broadcastMessage + "</li>";
+                $("#chat_messages_collection").prepend(message);
+            });
+        });
+    </script>
+</body>
+
+</html>
